@@ -34,7 +34,13 @@ RUN apt install -y debian-keyring debian-archive-keyring apt-transport-https && 
     curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list && \
     apt update && \
     apt install -y caddy
+
+# Move Caddy Config (Caddyfile)
 COPY Caddyfile /etc/caddy/
+
+# Move caddy service file
+COPY caddy /etc/init.d/caddy
+RUN chmod +x /etc/init.d/caddy
 
 # Remove apt cache
 RUN rm -rf /var/lib/apt/lists/*

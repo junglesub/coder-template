@@ -62,8 +62,6 @@ resource "coder_agent" "main" {
     curl -fsSL https://code-server.dev/install.sh | sh -s -- --method=standalone --prefix=/tmp/code-server --version 4.11.0
     /tmp/code-server/bin/code-server --auth none --port 13337 >/tmp/code-server.log 2>&1 &
 
-    # start caddy server
-    /usr/bin/caddy start --config /etc/caddy/Caddyfile
   EOT
 
   # These environment variables allow you to make Git commits right away after creating a
