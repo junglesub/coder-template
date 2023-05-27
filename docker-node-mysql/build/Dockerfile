@@ -7,7 +7,6 @@ RUN bash /change-ubuntu-mirror.sh
 # Install dependencies
 RUN apt-get update \
 	&& apt-get install -y \
-	systemctl \
 	curl \
 	git \
 	sudo \
