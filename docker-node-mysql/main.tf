@@ -102,6 +102,16 @@ resource "coder_app" "dev-server" {
   share        = data.coder_parameter.pf_perm.value
 }   
 
+resource "coder_app" "phpmyadmin-server" {
+  agent_id     = coder_agent.main.id
+  slug         = "phpmyadmin"
+  display_name = "phpmyadmin"
+  url          = "http://localhost:8081"
+  icon         = "https://www.phpmyadmin.net/static/favicon.ico"         
+  subdomain    = true
+  share        = "owner"
+}   
+
 resource "docker_volume" "home_volume" {
   name = "coder-${data.coder_workspace.me.id}-home"
   # Protect the volume from being deleted due to changes in attributes.
