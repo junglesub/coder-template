@@ -62,6 +62,12 @@ resource "coder_agent" "main" {
     curl -fsSL https://code-server.dev/install.sh | sh -s -- --method=standalone --prefix=/tmp/code-server --version 4.11.0
     /tmp/code-server/bin/code-server --auth none --port 13337 >/tmp/code-server.log 2>&1 &
 
+    # Start system services
+    echo "service caddy start & service mariadb start & service php8.2-fpm start" | sudo xargs -d "&" -L1 -I{} bash -c {}
+
+    # Update Mysql Root PW
+    (cat /usr/share/phpmyadmin/config.inc.php | sed -n "s/\$cfg\[\x27Servers\x27\]\[\$i\]\[\x27password\x27\] = '\(\S*\).*';$/\1/p") | xargs -I {} sudo mysql -e "set password for 'root'@'localhost'=password('{}');"
+
   EOT
 
   # These environment variables allow you to make Git commits right away after creating a

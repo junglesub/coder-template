@@ -42,6 +42,29 @@ COPY Caddyfile /etc/caddy/
 COPY caddy /etc/init.d/caddy
 RUN chmod +x /etc/init.d/caddy
 
+# Install phpmyadmin
+RUN apt-get update && \
+    apt-get -y install software-properties-common && \
+    add-apt-repository -y ppa:ondrej/php && \
+    DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get -y install tzdata && \
+    apt-get install -y php8.2 \
+                       php8.2-fpm \
+                       php8.2-cli \
+                       php8.2-common \
+                       php8.2-mysql \
+                       php8.2-zip \
+                       php8.2-gd \
+                       php8.2-mbstring \
+                       php8.2-curl \
+                       php8.2-xml \
+                       php8.2-bcmath
+
+COPY pma_installer.sh /
+RUN bash /pma_installer.sh -q
+
+COPY phpmyadmin_cred.sh /
+RUN bash /phpmyadmin_cred.sh
+
 # Remove apt cache
 RUN rm -rf /var/lib/apt/lists/*
 

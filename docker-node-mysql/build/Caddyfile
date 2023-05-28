@@ -2,3 +2,9 @@
     reverse_proxy 127.0.0.1:3000
     reverse_proxy /api/* 127.0.0.1:3030
 }
+
+:8081 {
+    root * /usr/share/phpmyadmin
+    php_fastcgi unix//run/php/php8.2-fpm.sock
+    file_server
+}
