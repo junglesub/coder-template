@@ -9,112 +9,112 @@ terraform {
   }
 }
 
-provider "docker" {
+variable "socket" {
+  type        = string
+  description = <<-EOF
+  The Unix socket that the Docker daemon listens on and how containers
+  communicate with the Docker daemon.
 
+  Either Unix or TCP
+  e.g., unix:///var/run/docker.sock
+
+  EOF
+  default = "unix:///var/run/docker.sock"
 }
 
-provider "coder" {
+provider "docker" {
+  host = var.socket
 }
 
 data "coder_workspace" "me" {
 }
 
-variable "dotfiles_uri" {
-  description = <<-EOF
-  Dotfiles repo URI (optional)
+provider "coder" {
 
-  see https://dotfiles.github.io
-  EOF
-  default = "git@github.com:sharkymark/dotfiles.git"
 }
 
-locals {
-  jupyter-type-arg = "${var.jupyter == "notebook" ? "Notebook" : "Server"}"
+# jupyterlab
+module "jupyterlab" {
+    source    = "https://registry.coder.com/modules/jupyterlab"
+    agent_id  = coder_agent.dev.id
+    log_path  = "/tmp/jupyterlab.log"
+    port      = 19999
+    share     = "owner"
 }
 
-variable "jupyter" {
-  description = "Jupyter IDE type"
-  default     = "notebook"
-  validation {
-    condition = contains([
-      "notebook",
-      "lab",
-    ], var.jupyter)
-    error_message = "Invalid Jupyter!"   
-}
+# coder's code-server (vs code in browser)
+module "code-server" {
+    source      = "https://registry.coder.com/modules/code-server"
+    agent_id    = coder_agent.dev.id
+    log_path  = "/tmp/code-server.log"    
+    folder      = "/home/coder"
+    extensions  = ["ms-toolsai.jupyter","ms-python.python"]
 }
 
-variable "api_key" {
-  description = <<-EOF
-  Arbitrary API Key to access Internet datasets (optional)
-
-  EOF
-  default=""
+# dotfiles repo
+module "dotfiles" {
+    source    = "https://registry.coder.com/modules/dotfiles"
+    agent_id  = coder_agent.dev.id
 }
 
 resource "coder_agent" "dev" {
   arch           = "amd64"
   os             = "linux"
+
+  # The following metadata blocks are optional. They are used to display
+  # information about your workspace in the dashboard. You can remove them
+  # if you don't want to display any information.
+  # For basic resources, you can use the `coder stat` command.
+  # If you need more control, you can write your own script.
+
+  metadata {
+    display_name = "CPU Usage"
+    key          = "0_cpu_usage"
+    script       = "coder stat cpu"
+    interval     = 10
+    timeout      = 1
+  }
+
+  metadata {
+    display_name = "RAM Usage"
+    key          = "1_ram_usage"
+    script       = "coder stat mem"
+    interval     = 10
+    timeout      = 1
+  }
+
+  metadata {
+    display_name = "Home Disk"
+    key          = "3_home_disk"
+    script       = "coder stat disk --path $${HOME}"
+    interval     = 60
+    timeout      = 1
+  }
+
+  display_apps {
+    vscode = false
+    vscode_insiders = false
+    ssh_helper = false
+    port_forwarding_helper = false
+    web_terminal = true
+  }
+
+  env = { 
+    }
+  startup_script_behavior = "blocking"
+  startup_script_timeout = 300  
   startup_script  = <<EOT
-#!/bin/bash
-
-# start jupyter 
-jupyter ${var.jupyter} --${local.jupyter-type-arg}App.token='' --ip='*' --${local.jupyter-type-arg}App.base_url=/@${data.coder_workspace.me.owner}/${lower(data.coder_workspace.me.name)}/apps/j &
-
-# install and start code-server
-curl -fsSL https://code-server.dev/install.sh | sh
-code-server --auth none --port 13337 &
+#!/bin/sh
 
 # add some Python libraries
-pip3 install --user pandas &
-
-# use coder CLI to clone and install dotfiles
-coder dotfiles -y ${var.dotfiles_uri} &
-
-# clone repo
-mkdir -p ~/.ssh
-ssh-keyscan -t ed25519 github.com >> ~/.ssh/known_hosts
-git clone --progress git@github.com:sharkymark/pandas_automl.git &
+pip3 install --user pandas >/dev/null 2>&1 &
 
   EOT  
 }
 
-resource "coder_app" "jupyter" {
-  agent_id      = coder_agent.dev.id
-  slug          = "j"  
-  display_name  = "jupyter-${var.jupyter}"
-  icon          = "/icon/jupyter.svg"
-  url           = "http://localhost:8888/@${data.coder_workspace.me.owner}/${lower(data.coder_workspace.me.name)}/apps/j"
-  share         = "owner"
-  subdomain     = false  
-
-  healthcheck {
-    url       = "http://localhost:8888/healthz"
-    interval  = 10
-    threshold = 20
-  }  
-}
-
-# code-server
-resource "coder_app" "code-server" {
-  agent_id      = coder_agent.dev.id
-  slug          = "code-server"  
-  display_name  = "VS Code Web"
-  icon          = "/icon/code.svg"
-  url           = "http://localhost:13337?folder=/home/coder"
-  subdomain = false
-  share     = "owner"
-
-  healthcheck {
-    url       = "http://localhost:13337/healthz"
-    interval  = 3
-    threshold = 10
-  }  
-}
-
 resource "docker_container" "workspace" {
   count = data.coder_workspace.me.start_count
-  image = "codercom/enterprise-jupyter:ubuntu"
+  image = "codercom/enterprise-base:ubuntu"
   # Uses lower() to avoid Docker restriction on container names.
   name     = "coder-${data.coder_workspace.me.owner}-${lower(data.coder_workspace.me.name)}"
   hostname = lower(data.coder_workspace.me.name)
@@ -130,7 +130,7 @@ resource "docker_container" "workspace" {
     EOT
   ]
 
-  env        = ["CODER_AGENT_TOKEN=${coder_agent.dev.token}", "API_KEY=${var.api_key}"]
+  env        = ["CODER_AGENT_TOKEN=${coder_agent.dev.token}"]
   volumes {
     container_path = "/home/coder/"
     volume_name    = docker_volume.coder_volume.name
@@ -152,14 +152,7 @@ resource "coder_metadata" "workspace_info" {
   resource_id = docker_container.workspace[0].id   
   item {
     key   = "image"
-    value = "codercom/enterprise-jupyter:ubuntu"
+    value = "codercom/enterprise-base:ubuntu"
   }
-  item {
-    key   = "repo cloned"
-    value = "docker.io/sharkymark/pandas_automl.git"
-  }  
-  item {
-    key   = "jupyter"
-    value = "${var.jupyter}"
-  }    
+   
 }
