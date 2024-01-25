@@ -34,6 +34,6 @@ for element in templates:
     run_command("mkdir -p " + name)
     run_command(f"docker exec coderd coder template pull {name} --token SgZNVKpSle-lzQ708JE4Rr7Lh3cmWwtAH --tar | tar -C {name} -xivf -")
 
-run_command("git add . && git commit -m '$(date)' && git push")
+run_command('git add . && git commit -m "$(date)" && git push')
 
 #print(load_json("[]"))
