@@ -65,6 +65,11 @@ RUN bash /pma_installer.sh -q
 COPY phpmyadmin_cred.sh /
 RUN bash /phpmyadmin_cred.sh
 
+# Install Korean
+RUN apt-get install -y locales
+RUN locale-gen ko_KR.UTF-8
+ENV LC_ALL ko_KR.UTF-8
+
 # Remove apt cache
 RUN rm -rf /var/lib/apt/lists/*
 
