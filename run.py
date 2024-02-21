@@ -1,5 +1,9 @@
 import subprocess
 import json, os
+from dotenv import load_dotenv
+
+# Load .env
+load_dotenv()
 
 def run_command(cmd):
     process = subprocess.run(cmd, capture_output=True, text=True, check=False, encoding='utf-8', shell=True)
@@ -32,7 +36,7 @@ for element in templates:
     name = template["name"]
     print(name)
     run_command("mkdir -p " + name)
-    run_command(f"docker exec coderd coder template pull {name} --token SgZNVKpSle-lzQ708JE4Rr7Lh3cmWwtAH --tar | tar -C {name} -xivf -")
+    run_command(f"docker exec coderd coder template pull {name} --token {os.environ.get('CODER_TOKEN')} --tar | tar -C {name} -xivf -")
 
 run_command('git add . && git commit -m "$(date)" && git push')
 
